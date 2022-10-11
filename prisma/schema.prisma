@@ -15,7 +15,7 @@ model User {
   // userName    String? 
   email       String  @unique
   password    String
-  twwetTicket Int     @default(1)
+  twwetTicket Int     @default(value: 1)
   tweets      Tweet[]
 }
 

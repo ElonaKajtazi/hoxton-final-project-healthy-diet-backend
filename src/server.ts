@@ -131,35 +131,50 @@ app.get("/validate", async (req, res) => {
 });
 
 app.post("/tweets", async (req, res) => {
-  const token = req.headers.authorization;
-  if (!token) {
-    res.status(401).send({ errors: ["No token provided."] });
-    return;
-  }
-  const user = await getCurrentUser(token);
-  if (!user) {
-    res.status(404).send({ errors: ["User not found"] });
-    return;
-  }
-  if (Number(user.twwetTicket) === 0) {
-    res.status(400).send({ errors: ["Not enough tweet tickets"] });
-    return;
-  }
-  prisma.user.update({
-    where: { id: user.id },
-    data: {
-      twwetTicket: 0,
-    },
-  });
-  const tweet = await prisma.tweet.create({
-    data: {
-      authorId: user.id,
-      text: req.body.text,
-    },
-    include: { author: true },
-  });
+  try {
+    const token = req.headers.authorization;
+    if (!token) {
+      res.status(401).send({ errors: ["No token provided."] });
+      return;
+    }
+    const user = await getCurrentUser(token);
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    // console.log(user.twwetTicket);
+    // console.log(user.email);
+    if (Number(user.twwetTicket) === 0) {
+      res.status(400).send({ errors: ["Not enough tweet tickets"] });
+      return;
+    }
+    const errors: string[] = [];
+    if (typeof req.body.text !== "string") {
+      errors.push("text missing or not a string");
+    }
+    if (errors.length === 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          twwetTicket: user.twwetTicket - 1,
+        },
+      });
+      const tweet = await prisma.tweet.create({
+        data: {
+          authorId: user.id,
+          text: req.body.text,
+        },
+        include: { author: true },
+      });
 
-  res.send(tweet);
+      res.send(tweet);
+    } else {
+      res.status(400).send({ errors });
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
 });
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
