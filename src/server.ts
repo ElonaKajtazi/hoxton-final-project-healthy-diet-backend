@@ -10,7 +10,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const port = 4444;
+const port = 4443;
 
 app.get("/", (req, res) => {
   res.send("Let's start again");
@@ -29,18 +29,18 @@ app.get("/users", async (req, res) => {
 // creates a new user
 app.post("/sign-up", async (req, res) => {
   //data that user sends..
-  const data = {
-    email: req.body.email,
-    password: req.body.email,
-  };
+  // const data = {
+  //   email: req.body.email,
+  //   password: req.body.email,
+  // };
   try {
     const errors: string[] = [];
 
-    if (typeof data.email !== "string") {
+    if (typeof req.body.email !== "string") {
       errors.push("Email missing or not a string");
     }
 
-    if (typeof data.password !== "string") {
+    if (typeof req.body.password !== "string") {
       errors.push("Password missing or not a string");
     }
 
@@ -51,7 +51,7 @@ app.post("/sign-up", async (req, res) => {
     }
     // checking if there exists a user with the same email
     const existingUser = await prisma.user.findUnique({
-      where: { email: data.email },
+      where: { email: req.body.email },
     });
     if (existingUser) {
       res.status(400).send({ errors: ["Email already exists."] });
@@ -60,8 +60,8 @@ app.post("/sign-up", async (req, res) => {
     // creates a new user
     const user = await prisma.user.create({
       data: {
-        email: data.email,
-        password: hash(data.password),
+        email: req.body.email,
+        password: hash(req.body.password),
       },
       include: { tweets: true },
     });
@@ -74,79 +74,42 @@ app.post("/sign-up", async (req, res) => {
   }
 });
 
-// app.post("/sign-in", async (req, res) => {
-//   try {
-//     const data = {
-//       email: req.body.email,
-//       password: req.body.password,
-//     };
-
-//     let errors: string[] = [];
-
-//     if (typeof data.email !== "string") {
-//       errors.push("Email missing or not a string");
-//     }
-//     if (typeof data.password !== "string") {
-//       errors.push("Password missing or not a string");
-//     }
-//     if (errors.length > 0) {
-//       res.status(400).send({ errors });
-//       return;
-//     }
-//     const user = await prisma.user.findUnique({
-//       where: { email: data.email },
-//       include: { tweets: true },
-//     });
-//     console.log(user);
-//     if (user && verify(data.password, user.password)) {
-//       const token = generateToken(user.id);
-//       res.send({ user, token });
-//     } else {
-//       res.status(400).send({ errors: ["Invalid email or password"] });
-//     }
-//   } catch (error) {
-//     //@ts-ignore
-//     res.status(400).send({ error: [error.message] });
-//   }
-// });
 app.post("/sign-in", async (req, res) => {
   try {
-    const { email, password } = req.body;
-    const errors: string[] = [];
+    // const data = {
+    //   email: req.body.email,
+    //   password: req.body.password,
+    // };
 
-    if (typeof email !== "string") {
+    let errors: string[] = [];
+
+    if (typeof req.body.email !== "string") {
       errors.push("Email missing or not a string");
     }
-
-    if (typeof password !== "string") {
+    if (typeof req.body.password !== "string") {
       errors.push("Password missing or not a string");
     }
-
     if (errors.length > 0) {
       res.status(400).send({ errors });
       return;
     }
-
     const user = await prisma.user.findUnique({
-      where: { email },
-      include: {
-        tweets: true,
-      },
+      where: { email: req.body.email },
+      include: { tweets: true },
     });
-
-    if (user && verify(password, user.password)) {
+    console.log(user);
+    if (user && verify(req.body.password, user.password)) {
       const token = generateToken(user.id);
-      // const verified = verify(String(password), String(user.password))
-      // console.log(verified)
-      res.send({ user, token});
+      res.send({ user, token });
     } else {
-      res.status(400).send({ errors: ["Username/password invalid."] });
+      res.status(400).send({ errors: ["Invalid email or password"] });
     }
   } catch (error) {
-    // @ts-ignore
-    res.status(400).send({ errors: [error.message] });
+    //@ts-ignore
+    res.status(400).send({ error: [error.message] });
   }
 });
+
 
 app.get("/validate", async (req, res) => {
   try {
