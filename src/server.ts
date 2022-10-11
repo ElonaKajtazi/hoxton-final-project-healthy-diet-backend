@@ -110,7 +110,6 @@ app.post("/sign-in", async (req, res) => {
   }
 });
 
-
 app.get("/validate", async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -131,7 +130,37 @@ app.get("/validate", async (req, res) => {
   }
 });
 
-app.post("/tweets", async (req, res) => {});
+app.post("/tweets", async (req, res) => {
+  const token = req.headers.authorization;
+  if (!token) {
+    res.status(401).send({ errors: ["No token provided."] });
+    return;
+  }
+  const user = await getCurrentUser(token);
+  if (!user) {
+    res.status(404).send({ errors: ["User not found"] });
+    return;
+  }
+  if (Number(user.twwetTicket) === 0) {
+    res.status(400).send({ errors: ["Not enough tweet tickets"] });
+    return;
+  }
+  prisma.user.update({
+    where: { id: user.id },
+    data: {
+      twwetTicket: 0,
+    },
+  });
+  const tweet = await prisma.tweet.create({
+    data: {
+      authorId: user.id,
+      text: req.body.text,
+    },
+    include: { author: true },
+  });
+
+  res.send(tweet);
+});
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });
