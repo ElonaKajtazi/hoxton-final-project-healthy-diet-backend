@@ -136,6 +136,31 @@ app.get("/validate", async (req, res) => {
   }
 });
 
+app.get("/tweetsPerUser/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["User id not provided"] });
+      return;
+    }
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        tweets: {
+          include: { comments: { include: { author: true } } },
+        },
+      },
+    });
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    res.send(user.tweets);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 app.post("/tweets", async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -182,9 +207,57 @@ app.post("/tweets", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+app.post("/comments", async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    if (!token) {
+      res.status(400).send({ errors: ["No token provided"] });
+      return;
+    }
+    const user = await getCurrentUser(token);
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    if (user.commentTicket === 0) {
+      res.status(400).send({ errors: ["Not enough comment tickets"] });
+      return;
+    }
+    const errors: string[] = [];
+
+    if (typeof req.body.text !== "string") {
+      errors.push("text not provided or not a string");
+    }
+    if (typeof req.body.tweetId !== "number") {
+      errors.push("tweet id not provided or not a string");
+    }
+
+    if (errors.length === 0) {
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          commentTicket: user.commentTicket - 1,
+        },
+      });
+      const comment = await prisma.comment.create({
+        data: {
+          text: req.body.text,
+          authorId: user.id,
+          tweetId: req.body.tweetId,
+        },
+      });
+      res.send(comment);
+    } else {
+      res.status(404).send({ errors });
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 app.get("/tickets", async (req, res) => {
   const users = await prisma.user.findMany();
-  let percent = 50;
+  let percent = 10;
   let percentage = Math.round((users.length / 100) * percent);
   const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
   for (let luckyUser of usersWhoGetTweetTickets) {
