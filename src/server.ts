@@ -22,8 +22,23 @@ app.get("/", (req, res) => {
 //Gets all the users, including their tweets
 app.get("/users", async (req, res) => {
   try {
-    const users = await prisma.user.findMany({ include: { tweets: true } });
+    const users = await prisma.user.findMany({
+      include: { tweets: { include: { comments: true } } },
+    });
     res.send(users);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+
+//get all tweets
+app.get("/tweets", async (req, res) => {
+  try {
+    const tweets = await prisma.tweet.findMany({
+      include: { author: true, comments: true },
+    });
+    res.send(tweets);
   } catch (error) {
     //@ts-ignore
     res.status(400).send({ errors: [error.message] });
@@ -208,6 +223,11 @@ app.post("/tweets", async (req, res) => {
 //create a comment
 app.post("/comments", async (req, res) => {
   try {
+    const data = {
+      text: req.body.text,
+      tweetId: req.body.tweetId,
+      image: req.body.image,
+    };
     const token = req.headers.authorization;
     if (!token) {
       res.status(400).send({ errors: ["No token provided"] });
@@ -222,16 +242,37 @@ app.post("/comments", async (req, res) => {
       res.status(400).send({ errors: ["Not enough comment tickets"] });
       return;
     }
+
+    // I need to check if author of the tweet is trying to comment on his own tweet and not let it happen...
+    // means  tweet.authorId === comment.authorId
+    // if(user.id === Number(req.body.a))
+
     const errors: string[] = [];
 
-    if (typeof req.body.text !== "string") {
-      errors.push("text not provided or not a string");
+    if (typeof data.text !== "string") {
+      errors.push("Text not provided or not a string");
     }
-    if (typeof req.body.tweetId !== "number") {
-      errors.push("tweet id not provided or not a string");
+    if (typeof data.tweetId !== "number") {
+      errors.push("tweet id not provided or not a number");
+    }
+    if (data.image && typeof data.image !== "string") {
+      errors.push("Image not provided or not a string");
     }
 
     if (errors.length === 0) {
+      const tweet = await prisma.tweet.findUnique({
+        where: { id: data.tweetId },
+      });
+      if (!tweet) {
+        res.status(404).send({ errors: ["Tweet not found"] });
+        return;
+      }
+      if (tweet.authorId === user.id) {
+        res.status(400).send({
+          errors: ["Why would you want to comment on your own tweet?"],
+        });
+        return;
+      }
       await prisma.user.update({
         where: { id: user.id },
         data: {
@@ -240,14 +281,16 @@ app.post("/comments", async (req, res) => {
       });
       const comment = await prisma.comment.create({
         data: {
-          text: req.body.text,
+          text: data.text,
           authorId: user.id,
-          tweetId: req.body.tweetId,
+          tweetId: data.tweetId,
+          image: data.image,
         },
       });
+
       res.send(comment);
     } else {
-      res.status(404).send({ errors });
+      res.status(400).send({ errors });
     }
   } catch (error) {
     //@ts-ignore
