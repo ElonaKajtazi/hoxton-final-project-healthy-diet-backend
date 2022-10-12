@@ -1,8 +1,5 @@
 import express from "express";
 import cors from "cors";
-// import dotenv from "dotenv"
-// import jwt from "jsonwebtoken"
-import bcrypt from "bcryptjs";
 import { PrismaClient, User } from "@prisma/client";
 import {
   generateToken,
@@ -79,7 +76,7 @@ app.post("/sign-up", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
-
+// sign in the user
 app.post("/sign-in", async (req, res) => {
   try {
     // const data = {
@@ -115,7 +112,7 @@ app.post("/sign-in", async (req, res) => {
     res.status(400).send({ error: [error.message] });
   }
 });
-
+// check if ther is a user signed in
 app.get("/validate", async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -135,7 +132,7 @@ app.get("/validate", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
-
+// get all tweets for a specific user
 app.get("/tweetsPerUser/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -161,6 +158,7 @@ app.get("/tweetsPerUser/:id", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+//create a tweet
 app.post("/tweets", async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -207,6 +205,7 @@ app.post("/tweets", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+//create a comment
 app.post("/comments", async (req, res) => {
   try {
     const token = req.headers.authorization;
@@ -255,6 +254,7 @@ app.post("/comments", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+//generate tickets randomly (need to find a way to make this happen every 24 hours)
 app.get("/tickets", async (req, res) => {
   const users = await prisma.user.findMany();
   let percent = 10;
