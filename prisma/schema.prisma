@@ -11,17 +11,29 @@ datasource db {
 }
 
 model User {
-  id          Int     @id @default(autoincrement())
+  id          Int       @id @default(autoincrement())
   // userName    String? 
-  email       String  @unique
+  email       String    @unique
   password    String
-  twwetTicket Int     @default(value: 1)
+  twwetTicket Int       @default(value: 1)
   tweets      Tweet[]
+  comments    Comment[]
 }
 
 model Tweet {
-  id       Int    @id @default(autoincrement())
+  id       Int       @id @default(autoincrement())
   text     String
   authorId Int
+  author   User      @relation(fields: [authorId], references: [id])
+  comments Comment[]
+}
+
+model Comment {
+  id       Int    @id @default(autoincrement())
+  text     String
+  image    String
+  authorId Int
+  tweetId  Int
+  tweet    Tweet  @relation(fields: [tweetId], references: [id])
   author   User   @relation(fields: [authorId], references: [id])
 }

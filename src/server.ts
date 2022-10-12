@@ -3,8 +3,14 @@ import cors from "cors";
 // import dotenv from "dotenv"
 // import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs";
-import { PrismaClient } from "@prisma/client";
-import { generateToken, getCurrentUser, hash, verify } from "./utils";
+import { PrismaClient, User } from "@prisma/client";
+import {
+  generateToken,
+  getCurrentUser,
+  hash,
+  verify,
+  getMultipleRandom,
+} from "./utils";
 const prisma = new PrismaClient();
 const app = express();
 app.use(cors());
@@ -176,6 +182,22 @@ app.post("/tweets", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+app.get("/tickets", async (req, res) => {
+  const users = await prisma.user.findMany();
+  let percent = 50;
+  let percentage = Math.round((users.length / 100) * percent);
+  const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
+  for (let luckyUser of usersWhoGetTweetTickets) {
+    await prisma.user.update({
+      where: { id: luckyUser.id },
+      data: {
+        twwetTicket: luckyUser.twwetTicket + 1,
+      },
+    });
+  }
+  res.send(usersWhoGetTweetTickets);
+});
+
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });

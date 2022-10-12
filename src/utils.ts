@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { PrismaClient } from "@prisma/client";
+import { PrismaClient, User } from "@prisma/client";
 
 const prisma = new PrismaClient();
 dotenv.config();
@@ -29,4 +29,9 @@ export async function getCurrentUser(token: string) {
   } catch (error) {
     return null;
   }
+}
+export function getMultipleRandom(arr: User[], num: number) {
+  const shuffled = [...arr].sort(() => 0.5 - Math.random());
+
+  return shuffled.slice(0, num);
 }
