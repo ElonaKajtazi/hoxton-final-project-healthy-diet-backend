@@ -297,8 +297,8 @@ app.post("/comments", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
-//generate tickets randomly (need to find a way to make this happen every 24 hours)
-app.get("/tickets", async (req, res) => {
+//generate tweet tickets randomly (need to find a way to make this happen every 24 hours)
+app.get("/tweet-tickets", async (req, res) => {
   const users = await prisma.user.findMany();
   let percent = 10;
   let percentage = Math.round((users.length / 100) * percent);
@@ -314,6 +314,22 @@ app.get("/tickets", async (req, res) => {
   res.send(usersWhoGetTweetTickets);
 });
 
+//generate comment tickets randomly (need to find a way to make this happen every 24 hours)
+app.get("/comment-tickets", async (req, res) => {
+  const users = await prisma.user.findMany();
+  let percent = 10;
+  let percentage = Math.round((users.length / 100) * percent);
+  const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
+  for (let luckyUser of usersWhoGetTweetTickets) {
+    await prisma.user.update({
+      where: { id: luckyUser.id },
+      data: {
+        commentTicket: luckyUser.commentTicket + 1,
+      },
+    });
+  }
+  res.send(usersWhoGetTweetTickets);
+});
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });
