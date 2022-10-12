@@ -1,0 +1,36 @@
+-- CreateTable
+CREATE TABLE "Topic" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "avatar" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "userId" INTEGER NOT NULL,
+    "tweetId" INTEGER NOT NULL,
+    CONSTRAINT "Topic_tweetId_fkey" FOREIGN KEY ("tweetId") REFERENCES "Tweet" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "Topic_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- RedefineTables
+PRAGMA foreign_keys=OFF;
+CREATE TABLE "new_Comment" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "text" TEXT NOT NULL,
+    "image" TEXT,
+    "authorId" INTEGER NOT NULL,
+    "tweetId" INTEGER NOT NULL,
+    CONSTRAINT "Comment_tweetId_fkey" FOREIGN KEY ("tweetId") REFERENCES "Tweet" ("id") ON DELETE CASCADE ON UPDATE CASCADE,
+    CONSTRAINT "Comment_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+INSERT INTO "new_Comment" ("authorId", "id", "image", "text", "tweetId") SELECT "authorId", "id", "image", "text", "tweetId" FROM "Comment";
+DROP TABLE "Comment";
+ALTER TABLE "new_Comment" RENAME TO "Comment";
+CREATE TABLE "new_Tweet" (
+    "id" INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
+    "text" TEXT NOT NULL,
+    "authorId" INTEGER NOT NULL,
+    CONSTRAINT "Tweet_authorId_fkey" FOREIGN KEY ("authorId") REFERENCES "User" ("id") ON DELETE CASCADE ON UPDATE CASCADE
+);
+INSERT INTO "new_Tweet" ("authorId", "id", "text") SELECT "authorId", "id", "text" FROM "Tweet";
+DROP TABLE "Tweet";
+ALTER TABLE "new_Tweet" RENAME TO "Tweet";
+PRAGMA foreign_key_check;
+PRAGMA foreign_keys=ON;

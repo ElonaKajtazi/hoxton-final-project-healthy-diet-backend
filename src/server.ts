@@ -13,7 +13,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const port = 4443;
+const port = 4444;
 
 app.get("/", (req, res) => {
   res.send("Let's start again");
@@ -330,6 +330,33 @@ app.get("/comment-tickets", async (req, res) => {
   }
   res.send(usersWhoGetTweetTickets);
 });
+// app.post("/topics-for-users/:id", async (req, res) => {
+//   const id = Number(req.params.id);
+//   const token = req.headers.authorization;
+//   if (!token) {
+//     res.status(401).send({ errors: ["No token provided."] });
+//     return;
+//   }
+//   const user = await getCurrentUser(token);
+//   if (!user) {
+//     res.status(404).send({ errors: ["User not found"] });
+//     return;
+//   }
+//   if (!id) {
+//     res.status(400).send({ errors: ["Topic id not provided"] });
+//     return;
+//   }
+//   const topic = await prisma.topic.findUnique({ where: { id } });
+
+// });
+
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });
+//NOTE to myself for tomorrow:
+//1. I need to show the user a list of all the available topics (a get end point for topics)
+//2. Create a model for chosen topic 1:m relation with the user (so when the user clicks (frontend) a topic creates a selected topic),  === another end point to crate the selected topic...
+//3. To create a userTopic loop over the selected topics
+//  3.1 for every selected topic, create a usertopic and delete the selected topic...
+
+// need to figure out the relation situation for current topic model...

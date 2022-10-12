@@ -18,22 +18,36 @@ model User {
   commentTicket Int       @default(1)
   tweets        Tweet[]
   comments      Comment[]
+  topics        Topic[]
 }
 
 model Tweet {
   id       Int       @id @default(autoincrement())
   text     String
   authorId Int
-  author   User      @relation(fields: [authorId], references: [id])
+  author   User      @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   comments Comment[]
+  topics   Topic[]
 }
 
 model Comment {
-  id       Int    @id @default(autoincrement())
+  id       Int     @id @default(autoincrement())
   text     String
   image    String?
   authorId Int
   tweetId  Int
-  tweet    Tweet  @relation(fields: [tweetId], references: [id])
-  author   User   @relation(fields: [authorId], references: [id])
+  tweet    Tweet   @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  author   User    @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+}
+
+model Topic {
+  id     Int     @id @default(autoincrement())
+  avatar String
+  name   String
+  // userId  Int?
+  // tweetId Int?
+  // tweet   Tweet? @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  // user    User?  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  users  User[]
+  tweets Tweet[]
 }
