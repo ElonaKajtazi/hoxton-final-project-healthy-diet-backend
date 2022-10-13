@@ -1,6 +1,6 @@
 import express from "express";
 import cors from "cors";
-import { PrismaClient, User } from "@prisma/client";
+import { PrismaClient, SelectedTopic, Topic, User } from "@prisma/client";
 import {
   generateToken,
   getCurrentUser,
@@ -23,7 +23,11 @@ app.get("/", (req, res) => {
 app.get("/users", async (req, res) => {
   try {
     const users = await prisma.user.findMany({
-      include: { tweets: { include: { comments: true } } },
+      include: {
+        tweets: { include: { comments: true } },
+        selecedTopics: { include: { topic: true } },
+        choosenTopic: true,
+      },
     });
     res.send(users);
   } catch (error) {
@@ -330,6 +334,27 @@ app.get("/comment-tickets", async (req, res) => {
   }
   res.send(usersWhoGetTweetTickets);
 });
+app.get("/topics", async (req, res) => {
+  try {
+    const topics = await prisma.topic.findMany();
+    res.send(topics);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+app.get("/selected-topics", async (req, res) => {
+  try {
+    const selctedTopics = await prisma.selectedTopic.findMany({
+      include: { topic: true },
+    });
+
+    res.send(selctedTopics);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 // app.post("/topics-for-users/:id", async (req, res) => {
 //   const id = Number(req.params.id);
 //   const token = req.headers.authorization;
@@ -349,14 +374,106 @@ app.get("/comment-tickets", async (req, res) => {
 //   const topic = await prisma.topic.findUnique({ where: { id } });
 
 // });
+app.post("/selected-topic", async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    if (!token) {
+      res.status(401).send({ errors: ["No token provided."] });
+      return;
+    }
+    const user = await getCurrentUser(token);
+    if (!user) {
+      res.status(401).send({ errors: ["Invalid token provided."] });
+      return;
+    }
+    const data = {
+      userId: user.id,
+      topicId: req.body.topicId,
+    };
+    const topic = await prisma.topic.findUnique({
+      where: { id: data.topicId },
+    });
+    if (!topic) {
+      res.status(404).send({ errors: ["Topic not found"] });
+      return;
+    }
+    let errors: string[] = [];
+    if (typeof data.topicId !== "number") {
+      errors.push("Topic id not provided or not a string");
+    }
+    if (typeof data.userId !== "number") {
+      errors.push("User id not provided or not a string");
+    }
+    // const selectedTopics = await prisma.selectedTopic.findMany({include:{topic:true}});
 
+    if (errors.length === 0) {
+      const selectedTopic = await prisma.selectedTopic.create({
+        data: {
+          userId: data.userId,
+          topicId: data.topicId,
+        },
+        include: { topic: true },
+      });
+      // const topicsToSend: Topic[] = [];
+      // for (let t of user.selecedTopics) {
+      //   topicsToSend.push(selectedTopic.topic);
+      // }
+
+      // for(let topic of topicsToSend) {
+      //   if(topic.name !== selectedTopic.topic.name) {
+
+      //   }
+      // }
+      res.send(selectedTopic);
+    } else {
+      res.status(400).send({ errors });
+    }
+  } catch (error) {
+    // @ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+
+app.post("/choosen-topics", async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    if (token) {
+      const user = await getCurrentUser(token);
+      if (!user) {
+        res.status(400).send({ errors: ["Invalid token"] });
+      } else {
+        for (let item of user.selecedTopics) {
+          await prisma.choosenTopic.create({
+            data: {
+              userId: item.userId,
+              topicId: item.topicId,
+            },
+          });
+
+          await prisma.selectedTopic.delete({ where: { id: item.id } });
+        }
+
+        res.send({ message: "Topics choosen succssesfully" });
+      }
+    } else {
+      res.status(400).send({ errors: ["Token not found"] });
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });
-//NOTE to myself for tomorrow:
-//1. I need to show the user a list of all the available topics (a get end point for topics)
-//2. Create a model for chosen topic 1:m relation with the user (so when the user clicks (frontend) a topic creates a selected topic),  === another end point to crate the selected topic...
-//3. To create a userTopic loop over the selected topics
-//  3.1 for every selected topic, create a usertopic and delete the selected topic...
 
-// need to figure out the relation situation for current topic model...
+//NOTE to myself for tomorrow:
+//1. I need to show the user a list of all the available topics (a get end point for topics) ✅
+//2. Create a model for choosen topic 1:m relation with the user (so when the user clicks (frontend) a topic creates a selected topic),  === another end point to crate the selected topic... ✅
+//3. To create a userTopic loop over the selected topics ✅
+//  3.1 for every selected topic, create a usertopic and delete the selected topic... ✅
+
+// need to figure out the relation situation for current topic model...✅
+
+
+// I have the problem that when I create a selected topic I can choose the the same topic multiple time 😐 means I will have the same choosen topic for user multiple times wich does not make sens. For now I hope I can solve this with fornt end!
