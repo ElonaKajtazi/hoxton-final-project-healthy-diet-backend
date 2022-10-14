@@ -27,6 +27,7 @@ app.get("/users", async (req, res) => {
         tweets: { include: { comments: true } },
         selecedTopics: { include: { topic: true } },
         choosenTopic: true,
+        notifications: true,
       },
     });
     res.send(users);
@@ -266,6 +267,7 @@ app.post("/comments", async (req, res) => {
     if (errors.length === 0) {
       const tweet = await prisma.tweet.findUnique({
         where: { id: data.tweetId },
+        include: { author: true },
       });
       if (!tweet) {
         res.status(404).send({ errors: ["Tweet not found"] });
@@ -291,7 +293,12 @@ app.post("/comments", async (req, res) => {
           image: data.image,
         },
       });
-
+      await prisma.notification.create({
+        data: {
+          userId: tweet.authorId,
+          text: `${user.email} commented on your tweet`,
+        },
+      });
       res.send(comment);
     } else {
       res.status(400).send({ errors });
@@ -314,6 +321,13 @@ app.get("/tweet-tickets", async (req, res) => {
         twwetTicket: luckyUser.twwetTicket + 1,
       },
     });
+
+    await prisma.notification.create({
+      data: {
+        userId: luckyUser.id,
+        text: `Congrats ${luckyUser.email} you get a tweet ticket`,
+      },
+    });
   }
   res.send(usersWhoGetTweetTickets);
 });
@@ -329,6 +343,12 @@ app.get("/comment-tickets", async (req, res) => {
       where: { id: luckyUser.id },
       data: {
         commentTicket: luckyUser.commentTicket + 1,
+      },
+    });
+    await prisma.notification.create({
+      data: {
+        userId: luckyUser.id,
+        text: `Congrats ${luckyUser.email} you get a comment ticket`,
       },
     });
   }
@@ -474,6 +494,5 @@ app.listen(port, () => {
 //  3.1 for every selected topic, create a usertopic and delete the selected topic... ✅
 
 // need to figure out the relation situation for current topic model...✅
-
 
 // I have the problem that when I create a selected topic I can choose the the same topic multiple time 😐 means I will have the same choosen topic for user multiple times wich does not make sens. For now I hope I can solve this with fornt end!
