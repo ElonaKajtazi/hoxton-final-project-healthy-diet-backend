@@ -45,6 +45,7 @@ model Comment {
   tweetId  Int
   tweet    Tweet    @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  likes    Like[]
 }
 
 model Topic {
@@ -81,9 +82,11 @@ model Notification {
 }
 
 model Like {
-  id      Int   @id @default(autoincrement())
-  userId  Int
-  tweetId Int
-  user    User  @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  tweet   Tweet @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  tweetId   Int?
+  commentId Int?
+  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tweet     Tweet?   @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 }
