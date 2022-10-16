@@ -1,7 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
-import { PrismaClient, User } from "@prisma/client";
+import { PrismaClient, SelectedTopic, User } from "@prisma/client";
 
 const prisma = new PrismaClient();
 dotenv.config();
@@ -38,3 +38,7 @@ export function getMultipleRandom(arr: User[], num: number) {
 
   return shuffled.slice(0, num);
 }
+
+// export function removeDuplicates(selctedTopics: SelectedTopic[], selectedTopic: SelectedTopic) {
+//   return selctedTopics.filter(item => !(item.topicId === selectedTopic.topicId));
+// }

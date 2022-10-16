@@ -1,6 +1,12 @@
 import express from "express";
 import cors from "cors";
-import { PrismaClient, SelectedTopic, Topic, User } from "@prisma/client";
+import {
+  PrismaClient,
+  SelectedTopic,
+  Topic,
+  Tweet,
+  User,
+} from "@prisma/client";
 import {
   generateToken,
   getCurrentUser,
@@ -13,7 +19,7 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-const port = 4444;
+const port = 4443;
 
 app.get("/", (req, res) => {
   res.send("Let's start again");
@@ -26,7 +32,6 @@ app.get("/users", async (req, res) => {
       include: {
         tweets: { include: { comments: true, likes: true } },
         selecedTopics: { include: { topic: true } },
-        choosenTopic: true,
         notifications: true,
       },
     });
@@ -92,6 +97,27 @@ app.get("/tweets-per-user/:id", async (req, res) => {
       return;
     }
     res.send(user.tweets);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+app.get("/users-selected-topics/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["User id not provided"] });
+      return;
+    }
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: { selecedTopics: { include: { topic: true } } },
+    });
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    res.send(user.selecedTopics);
   } catch (error) {
     //@ts-ignore
     res.status(400).send({ errors: [error.message] });
@@ -247,6 +273,9 @@ app.post("/tweets", async (req, res) => {
     if (typeof req.body.text !== "string") {
       errors.push("text missing or not a string");
     }
+    if (req.body.selctedTopic &&  typeof req.body.selectedTopicId !== "number") {
+      errors.push("selectedTopiId missing or not a string");
+    }
     if (errors.length === 0) {
       await prisma.user.update({
         where: { id: user.id },
@@ -258,6 +287,7 @@ app.post("/tweets", async (req, res) => {
         data: {
           authorId: user.id,
           text: req.body.text,
+          selectedTopicId: req.body.selectedTopicId,
         },
         include: { author: true },
       });
@@ -538,95 +568,170 @@ app.get("/selected-topics", async (req, res) => {
 //   const topic = await prisma.topic.findUnique({ where: { id } });
 
 // });
-app.post("/selected-topic", async (req, res) => {
+// app.post("/selected-topic", async (req, res) => {
+//   try {
+//     const token = req.headers.authorization;
+//     if (!token) {
+//       res.status(401).send({ errors: ["No token provided."] });
+//       return;
+//     }
+//     const user = await getCurrentUser(token);
+//     if (!user) {
+//       res.status(401).send({ errors: ["Invalid token provided."] });
+//       return;
+//     }
+//     const data = {
+//       userId: user.id,
+//       topicId: req.body.topicId,
+//     };
+//     const topic = await prisma.topic.findUnique({
+//       where: { id: data.topicId },
+//     });
+//     if (!topic) {
+//       res.status(404).send({ errors: ["Topic not found"] });
+//       return;
+//     }
+//     let errors: string[] = [];
+//     if (typeof data.topicId !== "number") {
+//       errors.push("Topic id not provided or not a string");
+//     }
+//     if (typeof data.userId !== "number") {
+//       errors.push("User id not provided or not a string");
+//     }
+//     // const selectedTopics = await prisma.selectedTopic.findMany({include:{topic:true}});
+
+//     if (errors.length === 0) {
+//       const selectedTopic = await prisma.selectedTopic.create({
+//         data: {
+//           userId: data.userId,
+//           topicId: data.topicId,
+//         },
+//         include: { topic: true },
+//       });
+//       // const topicsToSend: Topic[] = [];
+//       // for (let t of user.selecedTopics) {
+//       //   topicsToSend.push(selectedTopic.topic);
+//       // }
+
+//       // for(let topic of topicsToSend) {
+//       //   if(topic.name !== selectedTopic.topic.name) {
+
+//       //   }
+//       // }
+//       res.send(selectedTopic);
+//     } else {
+//       res.status(400).send({ errors });
+//     }
+//   } catch (error) {
+//     // @ts-ignore
+//     res.status(400).send({ errors: [error.message] });
+//   }
+// });
+app.post("/selected-topics/:id", async (req, res) => {
   try {
-    const token = req.headers.authorization;
-    if (!token) {
-      res.status(401).send({ errors: ["No token provided."] });
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["Invalid user id"] });
       return;
     }
-    const user = await getCurrentUser(token);
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: { selecedTopics: true },
+    });
     if (!user) {
-      res.status(401).send({ errors: ["Invalid token provided."] });
+      res.status(404).send({ errors: ["User not found"] });
       return;
     }
     const data = {
-      userId: user.id,
       topicId: req.body.topicId,
     };
-    const topic = await prisma.topic.findUnique({
-      where: { id: data.topicId },
+    const selectedTopic = await prisma.selectedTopic.create({
+      data: {
+        userId: id,
+        topicId: data.topicId,
+      },
     });
-    if (!topic) {
-      res.status(404).send({ errors: ["Topic not found"] });
-      return;
-    }
-    let errors: string[] = [];
-    if (typeof data.topicId !== "number") {
-      errors.push("Topic id not provided or not a string");
-    }
-    if (typeof data.userId !== "number") {
-      errors.push("User id not provided or not a string");
-    }
-    // const selectedTopics = await prisma.selectedTopic.findMany({include:{topic:true}});
+    // const selectedTopics = removeDuplicates(user.selecedTopics, selctedTopic); //nopeeeee
+    res.send(selectedTopic);
 
-    if (errors.length === 0) {
-      const selectedTopic = await prisma.selectedTopic.create({
-        data: {
-          userId: data.userId,
-          topicId: data.topicId,
-        },
-        include: { topic: true },
-      });
-      // const topicsToSend: Topic[] = [];
-      // for (let t of user.selecedTopics) {
-      //   topicsToSend.push(selectedTopic.topic);
-      // }
-
-      // for(let topic of topicsToSend) {
-      //   if(topic.name !== selectedTopic.topic.name) {
-
-      //   }
-      // }
-      res.send(selectedTopic);
-    } else {
-      res.status(400).send({ errors });
-    }
+    // for (let topic of user.selecedTopics) {
+    //   if (data.topicId !== topic.topic.id) {
+    //     await prisma.selectedTopic.create({
+    //       data: {
+    //         userId: data.userId,
+    //         topicId: data.topicId,
+    //       },
+    //     });
+    //   } else {
+    //   }
+    // }
   } catch (error) {
-    // @ts-ignore
+    //@ts-ignore
     res.status(400).send({ errors: [error.message] });
   }
-});
 
-app.post("/choosen-topics", async (req, res) => {
+  // console.log(user.selecedTopics);
+});
+app.get("/tweets-for-user", async (req, res) => {
   try {
     const token = req.headers.authorization;
-    if (token) {
-      const user = await getCurrentUser(token);
-      if (!user) {
-        res.status(400).send({ errors: ["Invalid token"] });
-      } else {
-        for (let item of user.selecedTopics) {
-          await prisma.choosenTopic.create({
-            data: {
-              userId: item.userId,
-              topicId: item.topicId,
-            },
-          });
+    if (!token) {
+      res.status(400).send({ errors: ["Token not provided"] });
+      return;
+    }
+    const user = await getCurrentUser(token);
 
-          await prisma.selectedTopic.delete({ where: { id: item.id } });
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    const tweets = await prisma.tweet.findMany();
+
+    const tweetsForUser: Tweet[] = [];
+    for (let topic of user.selecedTopics) {
+      tweets.filter((tweet) => {
+        if (topic.topic.id === tweet.selectedTopicId) {
+          tweetsForUser.push(tweet);
         }
+      });
 
-        res.send({ message: "Topics choosen succssesfully" });
-      }
-    } else {
-      res.status(400).send({ errors: ["Token not found"] });
+      res.send(tweetsForUser);
     }
   } catch (error) {
     //@ts-ignore
     res.status(400).send({ errors: [error.message] });
   }
 });
+
+// app.post("/choosen-topics", async (req, res) => {
+//   try {
+//     const token = req.headers.authorization;
+//     if (token) {
+//       const user = await getCurrentUser(token);
+//       if (!user) {
+//         res.status(400).send({ errors: ["Invalid token"] });
+//       } else {
+//         for (let item of user.selecedTopics) {
+//           await prisma.choosenTopic.create({
+//             data: {
+//               userId: item.userId,
+//               topicId: item.topicId,
+//             },
+//           });
+
+//           await prisma.selectedTopic.delete({ where: { id: item.id } });
+//         }
+
+//         res.send({ message: "Topics choosen succssesfully" });
+//       }
+//     } else {
+//       res.status(400).send({ errors: ["Token not found"] });
+//     }
+//   } catch (error) {
+//     //@ts-ignore
+//     res.status(400).send({ errors: [error.message] });
+//   }
+// });
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });
