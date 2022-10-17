@@ -11,29 +11,29 @@ datasource db {
 }
 
 model User {
-  id            Int       @id @default(autoincrement())
-  email         String    @unique
+  id            Int             @id @default(autoincrement())
+  name          String?
+  email         String          @unique
   password      String
-  twwetTicket   Int       @default(1)
-  commentTicket Int       @default(1)
+  twwetTicket   Int             @default(1)
+  commentTicket Int             @default(1)
   tweets        Tweet[]
   comments      Comment[]
-
   selecedTopics SelectedTopic[]
-  // choosenTopic  ChoosenTopic[]
   notifications Notification[]
   likes         Like[]
 }
 
 model Tweet {
-  id              Int           @id @default(autoincrement())
-  text            String
-  authorId        Int
-  time            DateTime      @default(now())
-  author          User          @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  comments        Comment[]
-  selectedTopicId Int?
-  selectedTopic   SelectedTopic? @relation(fields: [selectedTopicId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  id                   Int            @id @default(autoincrement())
+  text                 String
+  authorId             Int
+  time                 DateTime       @default(now())
+  author               User           @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  comments             Comment[]
+  selectedTopicUserId  Int?
+  selectedTopicTopicId Int?
+  selectedTopic        SelectedTopic? @relation(fields: [selectedTopicTopicId, selectedTopicUserId], references: [userId, topicId])
 
   likes Like[]
 }
@@ -59,12 +59,14 @@ model Topic {
 }
 
 model SelectedTopic {
-  id      Int     @id @default(autoincrement())
+  // id      Int     @id @default(autoincrement())
   userId  Int
   topicId Int
   topic   Topic   @relation(fields: [topicId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tweets  Tweet[]
+
+  @@id([userId, topicId])
 }
 
 // model ChoosenTopic {
@@ -84,11 +86,12 @@ model Notification {
 }
 
 model Like {
-  id        Int      @id @default(autoincrement())
+  // id        Int      @id @default(autoincrement())
   userId    Int
   tweetId   Int?
   commentId Int?
   comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tweet     Tweet?   @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  @@id([userId])
 }

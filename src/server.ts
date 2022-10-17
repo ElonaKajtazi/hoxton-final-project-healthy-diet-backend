@@ -1,4 +1,4 @@
-import express from "express";
+import express, { text } from "express";
 import cors from "cors";
 import {
   PrismaClient,
@@ -156,6 +156,9 @@ app.post("/sign-up", async (req, res) => {
   try {
     const errors: string[] = [];
 
+    if (typeof req.body.name !== "string") {
+      errors.push("Name missing or not a string");
+    }
     if (typeof req.body.email !== "string") {
       errors.push("Email missing or not a string");
     }
@@ -180,6 +183,7 @@ app.post("/sign-up", async (req, res) => {
     // creates a new user
     const user = await prisma.user.create({
       data: {
+        name: req.body.name,
         email: req.body.email,
         password: hash(req.body.password),
       },
@@ -273,7 +277,7 @@ app.post("/tweets", async (req, res) => {
     if (typeof req.body.text !== "string") {
       errors.push("text missing or not a string");
     }
-    if (req.body.selctedTopic &&  typeof req.body.selectedTopicId !== "number") {
+    if (req.body.selctedTopic && typeof req.body.selectedTopicId !== "number") {
       errors.push("selectedTopiId missing or not a string");
     }
     if (errors.length === 0) {
@@ -287,7 +291,7 @@ app.post("/tweets", async (req, res) => {
         data: {
           authorId: user.id,
           text: req.body.text,
-          selectedTopicId: req.body.selectedTopicId,
+          selectedTopicTopicId: req.body.selectedTopicTopicId,
         },
         include: { author: true },
       });
@@ -386,7 +390,7 @@ app.post("/comments", async (req, res) => {
   }
 });
 
-app.post("/likes-for-tweets", async (req, res) => {
+app.post("/likes-for-tweet", async (req, res) => {
   try {
     const data = {
       tweetId: req.body.tweetId,
@@ -493,7 +497,7 @@ app.post("/likes-for-comment", async (req, res) => {
 //generate tweet tickets randomly (need to find a way to make this happen every 24 hours)
 app.get("/tweet-tickets", async (req, res) => {
   const users = await prisma.user.findMany();
-  let percent = 10;
+  let percent = 50;
   let percentage = Math.round((users.length / 100) * percent);
   const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
   for (let luckyUser of usersWhoGetTweetTickets) {
@@ -517,7 +521,7 @@ app.get("/tweet-tickets", async (req, res) => {
 //generate comment tickets randomly (need to find a way to make this happen every 24 hours)
 app.get("/comment-tickets", async (req, res) => {
   const users = await prisma.user.findMany();
-  let percent = 10;
+  let percent = 50;
   let percentage = Math.round((users.length / 100) * percent);
   const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
   for (let luckyUser of usersWhoGetTweetTickets) {
@@ -686,16 +690,23 @@ app.get("/tweets-for-user", async (req, res) => {
       return;
     }
     const tweets = await prisma.tweet.findMany();
-
+    const errors : string [] = []
     const tweetsForUser: Tweet[] = [];
     for (let topic of user.selecedTopics) {
       tweets.filter((tweet) => {
-        if (topic.topic.id === tweet.selectedTopicId) {
+        if (topic.topicId === tweet.selectedTopicTopicId) {
           tweetsForUser.push(tweet);
+        } else {
+          errors.push("something is up")
+          
         }
       });
+      if(tweetsForUser.length === 0) {
+        res.status(40).send({errors})
+      } else {
 
-      res.send(tweetsForUser);
+        res.send(tweetsForUser);
+      }
     }
   } catch (error) {
     //@ts-ignore
