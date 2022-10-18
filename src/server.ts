@@ -1,12 +1,7 @@
-import express, { text } from "express";
+import express from "express";
 import cors from "cors";
-import {
-  PrismaClient,
-  SelectedTopic,
-  Topic,
-  Tweet,
-  User,
-} from "@prisma/client";
+import { PrismaClient, Tweet } from "@prisma/client";
+import cron from "node-cron";
 import {
   generateToken,
   getCurrentUser,
@@ -16,6 +11,7 @@ import {
 } from "./utils";
 const prisma = new PrismaClient();
 const app = express();
+
 app.use(cors());
 app.use(express.json());
 
@@ -41,7 +37,114 @@ app.get("/users", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+app.get("/users/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["User id not provided"] });
+      return;
+    }
 
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: {
+        tweets: true,
+        followedBy: { include: { friend1: true, friend2: true } },
+        following: { include: { friend1: true, friend2: true } },
+      },
+    });
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+
+    res.send(user);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+app.get("/users/:id/followers", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["User id not provided"] }); //
+      return;
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: { followedBy: { include: { friend2: true } } },
+    });
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    const followers: any = [];
+    for (let r of user.followedBy) {
+      followers.push(r.friend2);
+    }
+    if (followers.length === 0) {
+      res.send("No followers");
+    } else {
+      res.send(followers);
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+
+app.get("/users/:id/following", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["User id not provided"] }); //
+      return;
+    }
+    const user = await prisma.user.findUnique({
+      where: { id },
+      include: { following: { include: { friend1: true } } },
+    });
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    const following: any = [];
+    for (let r of user.following) {
+      following.push(r.friend1);
+    }
+    if (following.length === 0) {
+      res.send("You follow no one");
+    } else {
+      res.send(following);
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+
+app.get("/search-users/:name", async (req, res) => {
+  try {
+    const name = req.params.name;
+    if (!name) {
+      res.status(400).send({ errors: ["Name not provided"] });
+      return;
+    }
+    const results = await prisma.user.findMany({
+      where: { name: { contains: name } },
+    });
+    if (results.length === 0) {
+      res.send("User not found");
+    } else {
+      res.send(results);
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 //get all tweets
 app.get("/tweets", async (req, res) => {
   try {
@@ -148,11 +251,6 @@ app.get("/comments-per-tweet/:id", async (req, res) => {
 });
 // creates a new user
 app.post("/sign-up", async (req, res) => {
-  //data that user sends..
-  // const data = {
-  //   email: req.body.email,
-  //   password: req.body.email,
-  // };
   try {
     const errors: string[] = [];
 
@@ -177,7 +275,7 @@ app.post("/sign-up", async (req, res) => {
       where: { email: req.body.email },
     });
     if (existingUser) {
-      res.status(400).send({ errors: ["Email already exists."] });
+      res.status(400).send({ errors: ["Email has already been taken."] });
       return;
     }
     // creates a new user
@@ -200,11 +298,6 @@ app.post("/sign-up", async (req, res) => {
 // sign in the user
 app.post("/sign-in", async (req, res) => {
   try {
-    // const data = {
-    //   email: req.body.email,
-    //   password: req.body.password,
-    // };
-
     let errors: string[] = [];
 
     if (typeof req.body.email !== "string") {
@@ -495,51 +588,9 @@ app.post("/likes-for-comment", async (req, res) => {
   }
 });
 //generate tweet tickets randomly (need to find a way to make this happen every 24 hours)
-app.get("/tweet-tickets", async (req, res) => {
-  const users = await prisma.user.findMany();
-  let percent = 50;
-  let percentage = Math.round((users.length / 100) * percent);
-  const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
-  for (let luckyUser of usersWhoGetTweetTickets) {
-    await prisma.user.update({
-      where: { id: luckyUser.id },
-      data: {
-        twwetTicket: luckyUser.twwetTicket + 1,
-      },
-    });
-
-    await prisma.notification.create({
-      data: {
-        userId: luckyUser.id,
-        text: `Congrats ${luckyUser.email} you get a tweet ticket`,
-      },
-    });
-  }
-  res.send(usersWhoGetTweetTickets);
-});
+// cron.schedule(() =>{})
 
 //generate comment tickets randomly (need to find a way to make this happen every 24 hours)
-app.get("/comment-tickets", async (req, res) => {
-  const users = await prisma.user.findMany();
-  let percent = 50;
-  let percentage = Math.round((users.length / 100) * percent);
-  const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
-  for (let luckyUser of usersWhoGetTweetTickets) {
-    await prisma.user.update({
-      where: { id: luckyUser.id },
-      data: {
-        commentTicket: luckyUser.commentTicket + 1,
-      },
-    });
-    await prisma.notification.create({
-      data: {
-        userId: luckyUser.id,
-        text: `Congrats ${luckyUser.email} you get a comment ticket`,
-      },
-    });
-  }
-  res.send(usersWhoGetTweetTickets);
-});
 
 app.get("/selected-topics", async (req, res) => {
   try {
@@ -690,21 +741,19 @@ app.get("/tweets-for-user", async (req, res) => {
       return;
     }
     const tweets = await prisma.tweet.findMany();
-    const errors : string [] = []
+    const errors: string[] = [];
     const tweetsForUser: Tweet[] = [];
     for (let topic of user.selecedTopics) {
       tweets.filter((tweet) => {
         if (topic.topicId === tweet.selectedTopicTopicId) {
           tweetsForUser.push(tweet);
         } else {
-          errors.push("something is up")
-          
+          errors.push("something is up");
         }
       });
-      if(tweetsForUser.length === 0) {
-        res.status(40).send({errors})
+      if (tweetsForUser.length === 0) {
+        res.status(40).send({ errors });
       } else {
-
         res.send(tweetsForUser);
       }
     }
@@ -743,6 +792,55 @@ app.get("/tweets-for-user", async (req, res) => {
 //     res.status(400).send({ errors: [error.message] });
 //   }
 // });
+cron.schedule("30 5 13 * * *", async () => {
+  const users = await prisma.user.findMany();
+  let percent = 50;
+  console.log(percent);
+  let percentage = Math.round((users.length / 100) * percent);
+  const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
+  for (let luckyUser of usersWhoGetTweetTickets) {
+    await prisma.user.update({
+      where: { id: luckyUser.id },
+      data: {
+        commentTicket: luckyUser.commentTicket + 1,
+      },
+    });
+    await prisma.notification.create({
+      data: {
+        userId: luckyUser.id,
+        text: `Congrats ${luckyUser.email} you get a comment ticket`,
+      },
+    });
+  }
+});
+
+cron.schedule("30 5 13 * * *", async () => {
+  console.log("running a task every minute");
+  // app.get("/tweet-tickets", async (req, res) => {
+  const users = await prisma.user.findMany();
+  let percent = 50;
+  console.log(50);
+  let percentage = Math.round((users.length / 100) * percent);
+  const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
+  for (let luckyUser of usersWhoGetTweetTickets) {
+    await prisma.user.update({
+      where: { id: luckyUser.id },
+      data: {
+        twwetTicket: luckyUser.twwetTicket + 1,
+      },
+    });
+
+    await prisma.notification.create({
+      data: {
+        userId: luckyUser.id,
+        text: `Congrats ${luckyUser.email} you get a tweet ticket`,
+      },
+    });
+    // console.log(luckyUser);
+  }
+  // res.send(usersWhoGetTweetTickets);
+});
+
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });

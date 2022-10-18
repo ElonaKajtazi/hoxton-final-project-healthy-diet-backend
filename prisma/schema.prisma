@@ -13,6 +13,7 @@ datasource db {
 model User {
   id            Int             @id @default(autoincrement())
   name          String?
+  avatar        String?
   email         String          @unique
   password      String
   twwetTicket   Int             @default(1)
@@ -22,6 +23,8 @@ model User {
   selecedTopics SelectedTopic[]
   notifications Notification[]
   likes         Like[]
+  followedBy    Friendship[]    @relation("friend1")
+  following     Friendship[]    @relation("friend2")
 }
 
 model Tweet {
@@ -52,7 +55,6 @@ model Comment {
 
 model Topic {
   id             Int             @id @default(autoincrement())
-  avatar         String
   name           String          @unique
   // choosenTopic   ChoosenTopic[]
   selectedTopics SelectedTopic[]
@@ -93,5 +95,15 @@ model Like {
   comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tweet     Tweet?   @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
   @@id([userId])
+}
+
+model Friendship {
+  friend1Id Int
+  friend2Id Int
+  friend1   User @relation("friend1", fields: [friend1Id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  friend2   User @relation("friend2", fields: [friend2Id], references: [id], onDelete: Cascade, onUpdate: Cascade)
+
+  @@id([friend1Id, friend2Id])
 }
