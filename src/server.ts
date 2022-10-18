@@ -50,7 +50,9 @@ app.get("/users/:id", async (req, res) => {
       include: {
         tweets: true,
         followedBy: { include: { friend1: true, friend2: true } },
-        following: { include: { friend1: true, friend2: true } },
+        following: {
+          include: { friend1: { include: { tweets: true } }, friend2: true },
+        },
       },
     });
     if (!user) {
@@ -830,21 +832,25 @@ app.get("/tweets-for-user", async (req, res) => {
       return;
     }
     const tweets = await prisma.tweet.findMany();
-    const errors: string[] = [];
+    // const errors: string[] = [];
     const tweetsForUser: Tweet[] = [];
     for (let topic of user.selecedTopics) {
       tweets.filter((tweet) => {
         if (topic.topicId === tweet.selectedTopicTopicId) {
           tweetsForUser.push(tweet);
-        } else {
-          errors.push("something is up");
-        }
+        } 
       });
-      if (tweetsForUser.length === 0) {
-        res.status(40).send({ errors });
-      } else {
-        res.send(tweetsForUser);
-      }
+    }
+    for (let friend of user.following) {
+      friend.friend1.tweets.map((tweet) => tweetsForUser.push(tweet));
+    }
+    // if (errors.length !== 0) {
+    //   res.status(400).send({ errors });
+    // }
+    if (tweetsForUser.length === 0) {
+      res.send({ message: "No tweets found" });
+    } else {
+      res.send(tweetsForUser);
     }
   } catch (error) {
     //@ts-ignore
