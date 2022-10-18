@@ -145,6 +145,95 @@ app.get("/search-users/:name", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+
+app.post("/follow", async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    if (!token) {
+      res.status(400).send({ errors: ["Token not provided"] });
+      return;
+    }
+    const user = await getCurrentUser(token);
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    const data = {
+      friend1Id: req.body.friend1Id,
+      friend2Id: user.id,
+    };
+    const errors: string[] = [];
+    if (typeof data.friend1Id !== "number") {
+      errors.push("Friend1Id missing or not a number");
+    }
+    if (typeof data.friend2Id !== "number") {
+      errors.push("Friend2Id missing or not a number");
+    }
+    if (errors.length === 0) {
+      if (user.id === data.friend1Id) {
+        res.status(400).send({ errors: ["You can't follow yourself"] });
+      } else {
+        await prisma.friendship.create({
+          data: {
+            friend1Id: data.friend1Id,
+            friend2Id: data.friend2Id,
+          },
+        });
+        res.send({ message: `You started following ${data.friend1Id}` });
+      }
+    } else {
+      res.status(400).send({ errors });
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+app.delete("/unfollow", async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    if (!token) {
+      res.status(400).send({ errors: ["Token not provided"] });
+      return;
+    }
+    const user = await getCurrentUser(token);
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    const data = {
+      friend1Id: req.body.friend1Id,
+      friend2Id: user.id,
+    };
+    const errors: string[] = [];
+    if (typeof data.friend1Id !== "number") {
+      errors.push("Friend1Id missing or not a number");
+    }
+    if (typeof data.friend2Id !== "number") {
+      errors.push("Friend2Id missing or not a number");
+    }
+    if (errors.length === 0) {
+      //   if (user.id === data.friend1Id) {
+      //     res.status(400).send({ errors: ["You can't follow yourself"] });
+      //   } else {
+      await prisma.friendship.delete({
+        where: {
+          friend1Id_friend2Id: {
+            friend1Id: data.friend1Id,
+            friend2Id: data.friend2Id,
+          },
+        },
+      });
+      res.send({ message: `You unfollowed ${data.friend1Id}` });
+      // }
+    } else {
+      res.status(400).send({ errors });
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 //get all tweets
 app.get("/tweets", async (req, res) => {
   try {
