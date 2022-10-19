@@ -28,7 +28,11 @@ export async function getCurrentUser(token: string) {
         selecedTopics: { include: { topic: true } },
         notifications: true,
         followedBy: { include: { friend2: true } },
-        following: { include: { friend1: { include: { tweets: true } } } },
+        following: {
+          include: {
+            friend1: { include: { tweets: { include: { author: true } } } },
+          },
+        },
       },
     });
     return user;

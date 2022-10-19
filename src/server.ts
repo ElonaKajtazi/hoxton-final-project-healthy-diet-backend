@@ -831,14 +831,20 @@ app.get("/tweets-for-user", async (req, res) => {
       res.status(404).send({ errors: ["User not found"] });
       return;
     }
-    const tweets = await prisma.tweet.findMany();
+    const tweets = await prisma.tweet.findMany({
+      include: {
+        author: true,
+        likes: true,
+        selectedTopic: true,
+      },
+    });
     // const errors: string[] = [];
     const tweetsForUser: Tweet[] = [];
     for (let topic of user.selecedTopics) {
       tweets.filter((tweet) => {
         if (topic.topicId === tweet.selectedTopicTopicId) {
           tweetsForUser.push(tweet);
-        } 
+        }
       });
     }
     for (let friend of user.following) {
@@ -887,7 +893,7 @@ app.get("/tweets-for-user", async (req, res) => {
 //     res.status(400).send({ errors: [error.message] });
 //   }
 // });
-cron.schedule("30 5 13 * * *", async () => {
+cron.schedule("30 36 13 * * *", async () => {
   const users = await prisma.user.findMany();
   let percent = 50;
   console.log(percent);
@@ -909,7 +915,7 @@ cron.schedule("30 5 13 * * *", async () => {
   }
 });
 
-cron.schedule("30 5 13 * * *", async () => {
+cron.schedule("30 35 13 * * *", async () => {
   console.log("running a task every minute");
   // app.get("/tweet-tickets", async (req, res) => {
   const users = await prisma.user.findMany();
@@ -931,7 +937,7 @@ cron.schedule("30 5 13 * * *", async () => {
         text: `Congrats ${luckyUser.email} you get a tweet ticket`,
       },
     });
-    // console.log(luckyUser);
+    console.log(luckyUser);
   }
   // res.send(usersWhoGetTweetTickets);
 });
@@ -939,13 +945,3 @@ cron.schedule("30 5 13 * * *", async () => {
 app.listen(port, () => {
   console.log(`App running: http://localhost:${port}`);
 });
-
-//NOTE to myself for tomorrow:
-//1. I need to show the user a list of all the available topics (a get end point for topics) ✅
-//2. Create a model for choosen topic 1:m relation with the user (so when the user clicks (frontend) a topic creates a selected topic),  === another end point to crate the selected topic... ✅
-//3. To create a userTopic loop over the selected topics ✅
-//  3.1 for every selected topic, create a usertopic and delete the selected topic... ✅
-
-// need to figure out the relation situation for current topic model...✅
-
-// I have the problem that when I create a selected topic I can choose the the same topic multiple time 😐 means I will have the same choosen topic for user multiple times wich does not make sens. For now I hope I can solve this with fornt end!
