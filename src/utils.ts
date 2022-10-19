@@ -30,7 +30,13 @@ export async function getCurrentUser(token: string) {
         followedBy: { include: { friend2: true } },
         following: {
           include: {
-            friend1: { include: { tweets: { include: { author: true } } } },
+            friend1: {
+              include: {
+                tweets: {
+                  include: { author: true, likes: true, comments: true },
+                },
+              },
+            },
           },
         },
       },

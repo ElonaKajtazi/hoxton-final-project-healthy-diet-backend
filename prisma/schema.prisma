@@ -30,6 +30,7 @@ model User {
 model Tweet {
   id                   Int            @id @default(autoincrement())
   text                 String
+  image                String?
   authorId             Int
   time                 DateTime       @default(now())
   author               User           @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
@@ -37,7 +38,6 @@ model Tweet {
   selectedTopicUserId  Int?
   selectedTopicTopicId Int?
   selectedTopic        SelectedTopic? @relation(fields: [selectedTopicTopicId, selectedTopicUserId], references: [userId, topicId])
-
   likes Like[]
 }
 
@@ -50,7 +50,7 @@ model Comment {
   tweetId  Int
   tweet    Tweet    @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   author   User     @relation(fields: [authorId], references: [id], onDelete: Cascade, onUpdate: Cascade)
-  likes    Like[]
+  // likes    Like[]
 }
 
 model Topic {
@@ -90,13 +90,13 @@ model Notification {
 model Like {
   // id        Int      @id @default(autoincrement())
   userId    Int
-  tweetId   Int?
-  commentId Int?
-  comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
+  tweetId   Int
+  // commentId Int?
+  // comment   Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade, onUpdate: Cascade)
   tweet     Tweet?   @relation(fields: [tweetId], references: [id], onDelete: Cascade, onUpdate: Cascade)
 
-  @@id([userId])
+  @@id([userId, tweetId])
 }
 
 model Friendship {
