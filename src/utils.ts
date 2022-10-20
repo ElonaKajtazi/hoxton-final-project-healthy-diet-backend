@@ -24,7 +24,14 @@ export async function getCurrentUser(token: string) {
     const user = await prisma.user.findUnique({
       where: { id: (data as any).id },
       include: {
-        tweets: { include: { comments: true } },
+        tweets: {
+          include: {
+            comments: true,
+            author: true,
+            selectedTopic: true,
+            likes: true,
+          },
+        },
         selecedTopics: { include: { topic: true } },
         notifications: true,
         followedBy: { include: { friend2: true } },

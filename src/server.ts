@@ -37,6 +37,61 @@ app.get("/users", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+app.patch("/users/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["Id not provided"] });
+      return;
+    }
+    const errors: string[] = [];
+    if (typeof req.body.avatar !== "string") {
+      errors.push("Avatar not provided or is not a striing");
+    }
+    if (errors.length === 0) {
+      const user = await prisma.user.update({
+        where: { id },
+        data: {
+          avatar: req.body.avatar,
+        },
+        include: {
+          tweets: {
+            include: {
+              comments: true,
+              author: true,
+              selectedTopic: true,
+              likes: true,
+            },
+          },
+          selecedTopics: { include: { topic: true } },
+          notifications: true,
+          followedBy: { include: { friend2: true } },
+          following: {
+            include: {
+              friend1: {
+                include: {
+                  tweets: {
+                    include: { author: true, likes: true, comments: true },
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+      if (!user) {
+        res.status(404).send({ errors: ["User not found"] });
+        return;
+      }
+      res.send(user);
+    } else {
+      res.status(400).send({ errors });
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 app.get("/tweets", async (req, res) => {
   try {
     const tweet = await prisma.tweet.findMany({
@@ -295,7 +350,11 @@ app.get("/tweets-per-user/:id", async (req, res) => {
       where: { id },
       include: {
         tweets: {
-          include: { comments: { include: { author: true } } },
+          include: {
+            comments: { include: { author: true } },
+            likes: true,
+            author: true,
+          },
         },
       },
     });
@@ -865,6 +924,7 @@ app.get("/tweets-for-user", async (req, res) => {
     });
     // An empty array that later is gonna have all the tweets that should show on a users wall / home page
     const tweetsForUser: Tweet[] = [];
+
     //loop over users selected topics
     for (let topic of user.selecedTopics) {
       //fillters the tweets to get only the ones that have the a topic from users selected topics
@@ -881,6 +941,9 @@ app.get("/tweets-for-user", async (req, res) => {
         }
       });
     }
+    for (let tweet of user.tweets) {
+      tweetsForUser.push(tweet);
+    }
     // loops over users followings (people that the user follows)
     for (let friend of user.following) {
       // maps (loops) over  followed user tweets and pushes them to the array
@@ -889,10 +952,10 @@ app.get("/tweets-for-user", async (req, res) => {
     // if (errors.length !== 0) {
     //   res.status(400).send({ errors });
     // }
-
+    // const sortedTweets : Tweet[]= tweetsForUser.sort()
     // if tweets to send array is empty sends a message ⬇️
     if (tweetsForUser.length === 0) {
-      res.send({ message: "No tweets found" });
+      res.send([]);
       // else sends the tweets
     } else {
       res.send(tweetsForUser);
