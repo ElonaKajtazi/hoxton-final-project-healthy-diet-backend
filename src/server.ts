@@ -151,7 +151,7 @@ app.get("/search-users/:name", async (req, res) => {
       where: { name: { contains: name } },
     });
     if (results.length === 0) {
-      res.send("User not found");
+      res.send({ message: ["User not found"] });
     } else {
       res.send(results);
     }
@@ -265,7 +265,7 @@ app.get("/tweets", async (req, res) => {
 app.get("/comments", async (req, res) => {
   try {
     const comments = await prisma.comment.findMany({
-      include: {author: true, tweet: true },
+      include: { author: true, tweet: true },
     });
     res.send(comments);
   } catch (error) {
@@ -340,7 +340,7 @@ app.get("/comments-per-tweet/:id", async (req, res) => {
     const tweet = await prisma.tweet.findUnique({
       where: { id },
       include: {
-        comments: { include: { author: true, } },
+        comments: { include: { author: true } },
       },
     });
     if (!tweet) {
