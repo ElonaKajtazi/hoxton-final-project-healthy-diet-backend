@@ -37,6 +37,24 @@ app.get("/users", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+app.get("/notifications", async (req, res) => {
+  try {
+    const token = req.headers.authorization;
+    if (!token) {
+      res.status(400).send({ errors: ["Token not found"] });
+      return;
+    }
+    const user = await getCurrentUser(token);
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
+    res.send(user.notifications);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 app.patch("/users/:id", async (req, res) => {
   try {
     const id = Number(req.params.id);
@@ -206,7 +224,7 @@ app.get("/search-users/:name", async (req, res) => {
       where: { name: { contains: name } },
     });
     if (results.length === 0) {
-      res.send({ message: ["User not found"] });
+      res.status(400).send({ errors: ["User not found"] });
     } else {
       res.send(results);
     }
@@ -239,6 +257,20 @@ app.post("/follow", async (req, res) => {
     if (typeof data.friend2Id !== "number") {
       errors.push("Friend2Id missing or not a number");
     }
+    let friendship = {
+      friend1Id: data.friend1Id,
+      friend2Id: data.friend2Id,
+    };
+    const friendships = await prisma.friendship.findMany();
+    for (let f of friendships) {
+      if (
+        f.friend1Id === friendship.friend1Id &&
+        f.friend2Id === friendship.friend2Id
+      ) {
+        errors.push("You already follow this person");
+      }
+    }
+
     if (errors.length === 0) {
       if (user.id === data.friend1Id) {
         res.status(400).send({ errors: ["You can't follow yourself"] });
@@ -311,6 +343,34 @@ app.get("/tweets", async (req, res) => {
       include: { author: true, comments: true },
     });
     res.send(tweets);
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
+app.get("/tweets/:id", async (req, res) => {
+  try {
+    const id = Number(req.params.id);
+    if (!id) {
+      res.status(400).send({ errors: ["User id not provided"] });
+      return;
+    }
+
+    const tweet = await prisma.tweet.findUnique({
+      where: { id },
+      include: {
+        author: true,
+        comments: true,
+        likes: true,
+        selectedTopic: { include: { topic: true } },
+      },
+    });
+    if (!tweet) {
+      res.status(404).send({ errors: ["Tweet not found"] });
+      return;
+    }
+
+    res.send(tweet);
   } catch (error) {
     //@ts-ignore
     res.status(400).send({ errors: [error.message] });
@@ -637,7 +697,7 @@ app.post("/comments", async (req, res) => {
       await prisma.notification.create({
         data: {
           userId: tweet.authorId,
-          text: `${user.email} commented on your tweet`,
+          text: `${user.name} commented on your tweet`,
         },
       });
       res.send(comment);
@@ -690,7 +750,7 @@ app.post("/likes-for-tweet/:id", async (req, res) => {
       await prisma.notification.create({
         data: {
           userId: tweet.authorId,
-          text: `${user.email} liked your tweet`,
+          text: `${user.name} liked your tweet`,
         },
       });
       res.send(like);
@@ -702,62 +762,6 @@ app.post("/likes-for-tweet/:id", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
-// app.post("/likes-for-comment", async (req, res) => {
-//   try {
-//     const data = {
-//       commentId: req.body.commentId,
-//     };
-//     const token = req.headers.authorization;
-//     if (!token) {
-//       res.status(400).send({ errors: ["No token provided"] });
-//       return;
-//     }
-//     const user = await getCurrentUser(token);
-//     if (!user) {
-//       res.status(404).send({ errors: ["User not found"] });
-//       return;
-//     }
-
-//     const errors: string[] = [];
-
-//     if (typeof data.commentId !== "number") {
-//       errors.push("Comment id not provided or not a number");
-//     }
-
-//     if (errors.length === 0) {
-//       const comment = await prisma.comment.findUnique({
-//         where: { id: data.commentId },
-//         include: { author: true },
-//       });
-//       if (!comment) {
-//         res.status(404).send({ errors: ["Comment not found"] });
-//         return;
-//       }
-//       const like = await prisma.like.create({
-//         data: {
-//           userId: user.id,
-//           commentId: data.commentId,
-//         },
-//       });
-//       await prisma.notification.create({
-//         data: {
-//           userId: comment.authorId,
-//           text: `${user.email} liked your comment`,
-//         },
-//       });
-//       res.send(like);
-//     } else {
-//       res.status(400).send({ errors });
-//     }
-//   } catch (error) {
-//     //@ts-ignore
-//     res.status(400).send({ errors: [error.message] });
-//   }
-// });
-//generate tweet tickets randomly (need to find a way to make this happen every 24 hours)
-// cron.schedule(() =>{})
-
-//generate comment tickets randomly (need to find a way to make this happen every 24 hours)
 
 app.get("/selected-topics", async (req, res) => {
   try {
@@ -919,35 +923,36 @@ app.get("/tweets-for-user", async (req, res) => {
       include: {
         author: true,
         likes: true,
-        selectedTopic: true,
+        selectedTopic: { include: { topic: true } },
+        comments: true,
       },
     });
     // An empty array that later is gonna have all the tweets that should show on a users wall / home page
     const tweetsForUser: Tweet[] = [];
 
     //loop over users selected topics
-    for (let topic of user.selecedTopics) {
-      //fillters the tweets to get only the ones that have the a topic from users selected topics
-      tweets.filter((tweet) => {
-        if (topic.topicId === tweet.selectedTopicTopicId) {
-          //checks if the tweet is already pushed in the tweetsforUser cause it's a tweet with a topic user has selected
-          for (let userTweet of tweetsForUser) {
-            if (tweet !== userTweet) {
-              //if not:
-              //pushes the matched tweets to the empty array
-              tweetsForUser.push(tweet);
-            }
-          }
-        }
-      });
-    }
-    for (let tweet of user.tweets) {
-      tweetsForUser.push(tweet);
-    }
+    // for (let topic of user.selecedTopics) {
+    //   //fillters the tweets to get only the ones that have the a topic from users selected topics
+    //   tweets.filter((tweet) => {
+    //     if (topic.topicId === tweet.selectedTopicTopicId) {
+    //       //checks if the tweet is already pushed in the tweetsforUser cause it's a tweet with a topic user has selected
+
+    //       // if not:
+    //       //pushes the matched tweets to the empty array
+    //       tweetsForUser.push(tweet);
+    //     }
+    //   });
+    // }
+    // for (let tweet of user.tweets) {
+    //   tweetsForUser.push(tweet);
+    // }
     // loops over users followings (people that the user follows)
     for (let friend of user.following) {
       // maps (loops) over  followed user tweets and pushes them to the array
-      friend.friend1.tweets.map((tweet) => tweetsForUser.push(tweet));
+      // friend.friend1.tweets.map((tweet) => tweetsForUser.push(tweet));
+      for (let tweet of friend.friend1.tweets) {
+        tweetsForUser.push(tweet);
+      }
     }
     // if (errors.length !== 0) {
     //   res.status(400).send({ errors });
@@ -986,39 +991,53 @@ app.get("/likes-for-tweet/:id", async (req, res) => {
     res.status(400).send({ errors: [error.message] });
   }
 });
+app.delete("/unlike", async (req, res) => {
+  try {
+    const data = {
+      tweetId: Number(req.body.tweetId),
+    };
+    const token = req.headers.authorization;
+    if (!token) {
+      res.status(400).send({ errors: ["Token id provided"] });
+      return;
+    }
+    const user = await getCurrentUser(token);
+    if (!user) {
+      res.status(404).send({ errors: ["User not found"] });
+      return;
+    }
 
-// app.post("/choosen-topics", async (req, res) => {
-//   try {
-//     const token = req.headers.authorization;
-//     if (token) {
-//       const user = await getCurrentUser(token);
-//       if (!user) {
-//         res.status(400).send({ errors: ["Invalid token"] });
-//       } else {
-//         for (let item of user.selecedTopics) {
-//           await prisma.choosenTopic.create({
-//             data: {
-//               userId: item.userId,
-//               topicId: item.topicId,
-//             },
-//           });
+    const errors: string[] = [];
 
-//           await prisma.selectedTopic.delete({ where: { id: item.id } });
-//         }
+    if (typeof data.tweetId !== "number") {
+      errors.push("tweet id not provided or not a number");
+    }
 
-//         res.send({ message: "Topics choosen succssesfully" });
-//       }
-//     } else {
-//       res.status(400).send({ errors: ["Token not found"] });
-//     }
-//   } catch (error) {
-//     //@ts-ignore
-//     res.status(400).send({ errors: [error.message] });
-//   }
-// });
+    if (errors.length === 0) {
+      // const tweet = await prisma.tweet.findUnique({
+      //   where: { id: data.tweetId },
+      //   include: { author: true },
+      // });
+      // if (!tweet) {
+      //   res.status(404).send({ errors: ["Tweet not found"] });
+      //   return;
+      // }
+      const like = await prisma.like.delete({
+        where: { userId_tweetId: { tweetId: data.tweetId, userId: user.id } },
+      });
+
+      res.send("Like deleted succssefully");
+    } else {
+      res.status(400).send({ errors });
+    }
+  } catch (error) {
+    //@ts-ignore
+    res.status(400).send({ errors: [error.message] });
+  }
+});
 cron.schedule("30 36 13 * * *", async () => {
   const users = await prisma.user.findMany();
-  let percent = 50;
+  let percent = 20;
   console.log(percent);
   let percentage = Math.round((users.length / 100) * percent);
   const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
@@ -1032,9 +1051,10 @@ cron.schedule("30 36 13 * * *", async () => {
     await prisma.notification.create({
       data: {
         userId: luckyUser.id,
-        text: `Congrats ${luckyUser.email} you get a comment ticket`,
+        text: `Congrats ${luckyUser.name} you get a comment ticket`,
       },
     });
+    console.log(luckyUser);
   }
 });
 
@@ -1042,7 +1062,7 @@ cron.schedule("30 35 13 * * *", async () => {
   console.log("running a task every minute");
   // app.get("/tweet-tickets", async (req, res) => {
   const users = await prisma.user.findMany();
-  let percent = 50;
+  let percent = 20;
   console.log(50);
   let percentage = Math.round((users.length / 100) * percent);
   const usersWhoGetTweetTickets = getMultipleRandom(users, percentage);
@@ -1057,7 +1077,7 @@ cron.schedule("30 35 13 * * *", async () => {
     await prisma.notification.create({
       data: {
         userId: luckyUser.id,
-        text: `Congrats ${luckyUser.email} you get a tweet ticket`,
+        text: `Congrats ${luckyUser.name} you get a tweet ticket`,
       },
     });
     console.log(luckyUser);
