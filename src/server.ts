@@ -930,22 +930,16 @@ app.get("/tweets-for-user", async (req, res) => {
     // An empty array that later is gonna have all the tweets that should show on a users wall / home page
     const tweetsForUser: Tweet[] = [];
 
-    //loop over users selected topics
     // for (let topic of user.selecedTopics) {
-    //   //fillters the tweets to get only the ones that have the a topic from users selected topics
+
     //   tweets.filter((tweet) => {
     //     if (topic.topicId === tweet.selectedTopicTopicId) {
-    //       //checks if the tweet is already pushed in the tweetsforUser cause it's a tweet with a topic user has selected
-
-    //       // if not:
-    //       //pushes the matched tweets to the empty array
+      
     //       tweetsForUser.push(tweet);
     //     }
     //   });
     // }
-    // for (let tweet of user.tweets) {
-    //   tweetsForUser.push(tweet);
-    // }
+
     // loops over users followings (people that the user follows)
     for (let friend of user.following) {
       // maps (loops) over  followed user tweets and pushes them to the array
@@ -963,6 +957,7 @@ app.get("/tweets-for-user", async (req, res) => {
       res.send([]);
       // else sends the tweets
     } else {
+      console.log(tweetsForUser)
       res.send(tweetsForUser);
     }
   } catch (error) {
